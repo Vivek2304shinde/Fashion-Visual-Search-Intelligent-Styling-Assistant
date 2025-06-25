@@ -176,14 +176,14 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
             {product_name}
           </h4>
           <div className="text-lg font-bold brand-gold">₹{price}</div>
-          {product_url && (
+          {/* {product_url && (
             <button
               onClick={handleProductClick}
               className="w-full mt-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
             >
               View on {source || 'Store'}
             </button>
-          )}
+          )} */}
         </div>
       </div>
     );
