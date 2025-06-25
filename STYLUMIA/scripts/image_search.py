@@ -43,7 +43,7 @@ class ImageSearchEngine:
         load_time = time.time() - start_time
         print(f"Loaded {len(self.embeddings_cache)} embeddings in {load_time:.2f} seconds")
     
-    def search_by_embedding(self, query_embedding, top_k=5):
+    def search_by_embedding(self, query_embedding, top_k=30):
         """
         Search using a pre-computed query embedding
         Args:
@@ -79,7 +79,7 @@ class ImageSearchEngine:
         top_matches = sorted(similarities.items(), key=lambda x: x[1], reverse=True)[:top_k]
         return top_matches
     
-    def search_by_product_id(self, query_product_id, top_k=5):
+    def search_by_product_id(self, query_product_id, top_k=30):
         """
         Search using an existing product's embedding as query
         Args:
@@ -99,7 +99,7 @@ class ImageSearchEngine:
         filtered_results = [(pid, score) for pid, score in results if pid != query_product_id]
         return filtered_results[:top_k]
 
-def quick_search(query_product_id, embeddings_dir="embeddings", top_k=5):
+def quick_search(query_product_id, embeddings_dir="embeddings", top_k=30):
     """
     Quick search function for one-time use
     Args:
@@ -153,8 +153,8 @@ if __name__ == "__main__":
     
     # Search using a product ID (assuming you have embeddings saved)
     query_id = "0b24a4c1abbe05ce5cc7a7041a476d53c69b6acd70b84693b94b91afbe5b38ee"
-    results = search_engine.search_by_product_id(query_id, top_k=5)
-    print(f"Top 5 similar products to {query_id}:")
+    results = search_engine.search_by_product_id(query_id, top_k=30)
+    print(f"Top 30 similar products to {query_id}:")
     for product_id, similarity in results:
         print(f"  {product_id}: {similarity:.4f}")
     
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     
     # Method 2: Quick one-time search
     print("=== Method 2: Quick Search ===")
-    results2 = quick_search(query_id, "embeddings", top_k=3)
-    print(f"Top 3 similar products (quick search):")
+    results2 = quick_search(query_id, "embeddings", top_k=30)
+    print(f"Top 30 similar products (quick search):")
     for product_id, similarity in results2:
         print(f"  {product_id}: {similarity:.4f}")

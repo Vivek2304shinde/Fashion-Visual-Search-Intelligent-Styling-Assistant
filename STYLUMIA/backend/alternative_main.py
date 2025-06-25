@@ -8,12 +8,17 @@ import os
 import sys
 import logging
 from datetime import datetime
+import traceback
+import asyncio
+from pydantic import BaseModel 
+from typing import Dict, Any 
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+
 # Add after your other initializations
 def load_product_data():
-    csv_path = r"C:\Users\ANAND\Downloads\STYLUMIA\STYLUMIA\data\dresses_bd_processed_data.csv"
+    csv_path = r"C:\Users\ANAND\Downloads\STYLUMIA\Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\data\dresses_bd_processed_data.csv"
     try:
         df = pd.read_csv(csv_path, encoding='utf-8')
     except UnicodeDecodeError:
@@ -34,10 +39,11 @@ logger = logging.getLogger(__name__)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.clip_embeddings import get_embedding
 from scripts.faiss_search import EmbeddingSimilaritySearch
+from scraper import MyntraScraper
 
 app = FastAPI()
 
-search_engine = EmbeddingSimilaritySearch(r"C:\Users\ANAND\Downloads\STYLUMIA\STYLUMIA\faiss_index")
+search_engine = EmbeddingSimilaritySearch(r"C:\Users\ANAND\Downloads\STYLUMIA\Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\faiss_index")
 
 # CORS Setup - Enhanced for debugging
 app.add_middleware(
@@ -75,7 +81,7 @@ async def health_check():
     })
 
 @app.post("/search")
-async def search_by_image(file: UploadFile = File(...), top_k: int = 5):
+async def search_by_image(file: UploadFile = File(...), top_k: int = 30):
     """
     Endpoint flow:
     1. Receive image upload
@@ -118,7 +124,7 @@ async def search_by_image(file: UploadFile = File(...), top_k: int = 5):
         
         # 4. Search FAISS (from your search_faiss.py)
         logger.info("Step 4: Searching FAISS index...")
-        similar_product_ids = search_engine.search(embedding, top_k=5)
+        similar_product_ids = search_engine.search(embedding, top_k=30)
         logger.info(f"✓ FAISS search completed. Found {len(similar_product_ids)} results")
         logger.info(f"Similar product IDs: {similar_product_ids}")
         
@@ -172,6 +178,87 @@ async def search_by_image(file: UploadFile = File(...), top_k: int = 5):
         raise HTTPException(500, f"Search failed: {str(e)}")
 
 
+@app.post("/search/text")
+async def search_by_text(query_data: Dict[str, Any]):
+    """
+    Complete text search endpoint with Myntra scraping
+    Accepts: {"query": "search term", "top_k": 30}
+    Returns: List of products with complete details
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Validate input exists and is a dictionary
+        if not isinstance(query_data, dict):
+            raise HTTPException(
+                status_code=422,
+                detail="Request body must be a JSON object"
+            )
+
+        # Extract and validate query
+        query = query_data.get("query", "").strip()
+        if not query:
+            raise HTTPException(
+                status_code=400,
+                detail="Search query cannot be empty"
+            )
+
+        # Extract and validate top_k
+        try:
+            top_k = int(query_data.get("top_k", 30))
+            if not (1 <= top_k <= 100):
+                raise ValueError("top_k must be between 1 and 100")
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=str(e)
+            )
+
+        # Execute search
+        scraper = MyntraScraper()
+        try:
+            results = await asyncio.wait_for(
+                asyncio.to_thread(scraper.search_products, query, top_k),
+                timeout=60.0
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail="Search operation timed out"
+            )
+
+        # Validate and format results
+        validated_results = []
+        for product in results:
+            if not all(k in product for k in ['product_id', 'product_name', 'price']):
+                continue
+                
+            validated_results.append({
+                "product_id": str(product["product_id"]),
+                "product_name": str(product["product_name"]),
+                "brand": str(product.get("brand", "")),
+                "price": float(product["price"]),
+                "image_url": str(product.get("image_url", "")),
+                "product_url": str(product.get("product_url", "")),
+                "source": "myntra"
+            })
+
+        return {
+            "success": True,
+            "query": query,
+            "results": validated_results,
+            "total_found": len(validated_results),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred"
+        )
 
 if __name__ == "__main__":
     import uvicorn

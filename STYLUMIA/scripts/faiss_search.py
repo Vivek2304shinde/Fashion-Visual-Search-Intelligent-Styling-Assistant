@@ -31,7 +31,7 @@ class EmbeddingSimilaritySearch:
         self.index = faiss.read_index(index_file)
         self.product_ids = np.load(ids_file)
 
-    def search(self, embedding: np.ndarray, top_k: int = 5) -> List[str]:
+    def search(self, embedding: np.ndarray, top_k: int = 30) -> List[str]:
         """
         Find similar products given an embedding vector
         
@@ -62,7 +62,7 @@ class EmbeddingSimilaritySearch:
     
     try:
         # Get similar products
-        similar_product_ids = search_engine.search(test_embedding, top_k=5)
+        similar_product_ids = search_engine.search(test_embedding, top_k=30)
         
         # Prepare mock response
         results = [{

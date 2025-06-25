@@ -5,13 +5,15 @@ const API_BASE_URL = 'http://localhost:8000';  // Adjust if your backend runs on
 
 // Types for API responses
 export interface SearchResult {
-  product_id: string;
-  image_url: string;
-  product_name: string;
-  brand: string;
-  price: number;
+    product_id: string;
+    product_name: string;
+    brand: string;
+    price: number;
+    image_url: string;
+    product_url?: string;
+    source?: string;
+    similarity?: number;
 }
-
 export interface SearchResponse {
   success: boolean;
   results: SearchResult[];
