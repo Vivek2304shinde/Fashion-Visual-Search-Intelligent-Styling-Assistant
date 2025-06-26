@@ -167,12 +167,12 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-white">
       <div className="w-full max-w-2xl text-center">
         {/* Logo */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold mb-2 stylumia-gradient font-clash">Stylumia</h1>
-          <div className="w-12 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent mx-auto"></div>
+          <h1 className="text-5xl font-bold mb-2 text-[#8B4513] font-clash">Stylumia</h1>
+          <div className="w-12 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto"></div>
         </div>
 
         {/* Backend Status */}
@@ -182,11 +182,13 @@ const UploadZone: React.FC<UploadZoneProps> = ({
 
         {/* Search Mode Toggle */}
         <div className="mb-6 flex justify-center">
-          <div className="inline-flex bg-amber-50 rounded-full p-1">
+          <div className="inline-flex bg-[#F7E7CE] rounded-full p-1">
             <button
               onClick={() => setSearchMode('image')}
               className={`px-6 py-2 rounded-full transition-all ${
-                searchMode === 'image' ? 'bg-amber-500 text-white shadow-md' : 'text-amber-600 hover:bg-amber-100'
+                searchMode === 'image' 
+                  ? 'bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white shadow-md' 
+                  : 'text-[#8B4513] hover:bg-[#F7E7CE]'
               }`}
             >
               Image Search
@@ -194,7 +196,9 @@ const UploadZone: React.FC<UploadZoneProps> = ({
             <button
               onClick={() => setSearchMode('text')}
               className={`px-6 py-2 rounded-full transition-all ${
-                searchMode === 'text' ? 'bg-amber-500 text-white shadow-md' : 'text-amber-600 hover:bg-amber-100'
+                searchMode === 'text' 
+                  ? 'bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white shadow-md' 
+                  : 'text-[#8B4513] hover:bg-[#F7E7CE]'
               }`}
             >
               Text Search
@@ -206,9 +210,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
           /* Image Upload Zone */
           <div
             className={`
-              glass-panel rounded-3xl p-12 hover-lift glow-on-hover
+              rounded-3xl p-12 hover-lift glow-on-hover
               border-2 border-dashed transition-all duration-300
-              ${isDragOver ? 'border-amber-400 bg-amber-50/30 shadow-2xl shadow-amber-500/20' : 'border-amber-300/50 hover:border-amber-400/70'}
+              bg-gradient-to-br from-[#FFF8DC] via-[#F7E7CE] to-[#D4AF37]
+              ${isDragOver ? 'border-[#D4AF37] shadow-2xl shadow-[#D4AF37]/20' : 'border-[#8B4513]/50 hover:border-[#D4AF37]'}
               ${isSearching ? 'pointer-events-none opacity-75' : ''}
             `}
             {...handleDragEvents}
@@ -218,7 +223,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
               <div className={`
                 mx-auto w-20 h-20 rounded-full flex items-center justify-center
                 transition-all duration-300
-                ${isDragOver ? 'bg-amber-100 text-amber-600 scale-110' : 'bg-amber-50 text-amber-500 hover:bg-amber-100'}
+                ${isDragOver ? 'bg-[#8B4513] text-[#FFF8DC] scale-110' : 'bg-[#F7E7CE] text-[#8B4513] hover:bg-[#D4AF37] hover:text-white'}
               `}>
                 {isSearching ? (
                   <Loader2 className="w-10 h-10 animate-spin" />
@@ -231,10 +236,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
 
               {/* Main Text */}
               <div className="space-y-3">
-                <h2 className="text-3xl font-semibold text-slate-800">
+                <h2 className="text-3xl font-semibold text-[#8B4513]">
                   {isSearching ? 'Analyzing your image...' : 'Find looks you will love—start with an image.'}
                 </h2>
-                <p className="text-lg text-slate-500 italic font-light">
+                <p className="text-lg text-[#8B4513]/80 italic font-light">
                   {isSearching ? 'Please wait while we search for similar products' : 'Drop a pic—your next outfit is waiting!'}
                 </p>
               </div>
@@ -258,11 +263,11 @@ const UploadZone: React.FC<UploadZoneProps> = ({
               <div className="pt-4">
                 <label className={`
                   inline-flex items-center gap-2 px-8 py-4 
-                  bg-gradient-to-r from-amber-600 to-amber-500
-                  hover:from-amber-700 hover:to-amber-600
+                  bg-gradient-to-r from-[#8B4513] to-[#D4AF37]
+                  hover:from-[#8B4513]/90 hover:to-[#D4AF37]/90
                   text-white font-medium rounded-2xl
                   cursor-pointer transition-all duration-300
-                  hover:shadow-xl hover:shadow-amber-500/25
+                  hover:shadow-xl hover:shadow-[#D4AF37]/25
                   transform hover:scale-105
                   ${isSearching || backendStatus !== 'connected' ? 'opacity-50 cursor-not-allowed' : ''}
                 `}>
@@ -283,24 +288,24 @@ const UploadZone: React.FC<UploadZoneProps> = ({
               </div>
 
               {/* Supported formats */}
-              <p className="text-sm text-slate-400 mt-4">
+              <p className="text-sm text-[#8B4513]/60 mt-4">
                 Supports JPG, PNG, WebP, and GIF
               </p>
             </div>
           </div>
         ) : (
           /* Text Search Zone */
-          <div className="glass-panel rounded-3xl p-12">
+          <div className="rounded-3xl p-12 bg-gradient-to-br from-[#FFF8DC] via-[#F7E7CE] to-[#D4AF37]">
             <form onSubmit={handleTextSearch} className="space-y-6">
-              <div className="mx-auto w-20 h-20 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center">
+              <div className="mx-auto w-20 h-20 rounded-full bg-[#F7E7CE] text-[#8B4513] flex items-center justify-center">
                 <SearchIcon className="w-10 h-10" />
               </div>
 
               <div className="space-y-3">
-                <h2 className="text-3xl font-semibold text-slate-800">
+                <h2 className="text-3xl font-semibold text-[#8B4513]">
                   Search for fashion items
                 </h2>
-                <p className="text-lg text-slate-500 italic font-light">
+                <p className="text-lg text-[#8B4513]/80 italic font-light">
                   Describe what you're looking for...
                 </p>
               </div>
@@ -311,13 +316,13 @@ const UploadZone: React.FC<UploadZoneProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="e.g. 'red summer dress' or 'black leather jacket'"
-                  className="w-full px-6 py-4 pr-16 rounded-2xl border border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
+                  className="w-full px-6 py-4 pr-16 rounded-2xl border border-[#D4AF37] focus:border-[#8B4513] focus:ring-2 focus:ring-[#D4AF37] outline-none transition-all bg-white/90"
                   disabled={isSearching || backendStatus !== 'connected'}
                 />
                 <button
                   type="submit"
                   disabled={!searchQuery.trim() || isSearching || backendStatus !== 'connected'}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-amber-500 text-white p-2 rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white p-2 rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {isSearching ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
