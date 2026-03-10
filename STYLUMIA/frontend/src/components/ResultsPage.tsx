@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Heart, ShoppingBag, Sparkles, Shirt } from 'lucide-react';
+import { Heart, ShoppingBag, Sparkles, Shirt, MessageCircle } from 'lucide-react';
 import PageHeader from './layout/PageHeader';
 import TabNavigation from './layout/TabNavigation';
 import ComplementaryOutfits from './sections/ComplementaryOutfits';
 import { apiService, SearchResult } from '../services/api';
 import { useLocation } from 'react-router-dom';
+import ChatInterface from './ChatInterface';
 
 interface ResultsPageProps {
   searchResults?: SearchResult[];
@@ -37,6 +38,8 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string>('');
 
   // Debug logs
   console.log("Rendering ResultsPage with:", {
@@ -47,6 +50,15 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
     productsCount: products.length
   });
   console.log("Location state:", location.state);
+
+  // Use location state if props not provided
+  useEffect(() => {
+    if (location.state) {
+      if (location.state.searchResults && !searchResults) {
+        setProducts(location.state.searchResults);
+      }
+    }
+  }, [location.state, searchResults]);
 
   const fetchProducts = useCallback(async () => {
     console.log('Starting product fetch...');
@@ -96,6 +108,20 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
     });
   };
 
+  const showStatus = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setStatusMessage(message);
+    setTimeout(() => setStatusMessage(''), 3000);
+  };
+
+  const handleChatRecommendations = (recommendations: any) => {
+    console.log('Got recommendations from chat:', recommendations);
+    if (recommendations?.outfit_plan) {
+      setActiveTab('foryou');
+      showStatus('Got personalized styling recommendations!', 'success');
+      // You can store the recommendations in state to display them
+    }
+  };
+
   const EmptyState = ({ type }: { type: TabType }) => {
     const states = {
       similar: {
@@ -126,6 +152,20 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
           <h3 className="text-xl font-semibold text-slate-700">{title}</h3>
           <p className="text-slate-500">{subtitle}</p>
         </div>
+        {type === 'foryou' && (
+          <button 
+            onClick={() => setIsChatOpen(true)}
+            className="
+            w-16 h-16 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500
+            hover:from-amber-500 hover:to-yellow-600
+            text-white text-2xl font-light
+            hover-lift glow-on-hover
+            flex items-center justify-center
+            animate-gentle-pulse
+          ">
+            +
+          </button>
+        )}
       </div>
     );
   };
@@ -176,14 +216,6 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
             {product_name}
           </h4>
           <div className="text-lg font-bold brand-gold">₹{price}</div>
-          {/* {product_url && (
-            <button
-              onClick={handleProductClick}
-              className="w-full mt-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
-            >
-              View on {source || 'Store'}
-            </button>
-          )} */}
         </div>
       </div>
     );
@@ -255,6 +287,16 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <PageHeader uploadedImage={getImageAsString()} />
+      
+      {/* Status Message */}
+      {statusMessage && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-green-50 text-green-700 border border-green-200 p-3 rounded-lg text-sm font-medium shadow-lg">
+            {statusMessage}
+          </div>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto px-6 py-6">
         <TabNavigation 
           activeTab={activeTab} 
@@ -264,6 +306,21 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
           {renderContent()}
         </div>
       </div>
+
+      {/* AI Stylist Chat Button */}
+      <button
+        onClick={() => setIsChatOpen(true)}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white p-4 rounded-full shadow-2xl hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-40 animate-pulse"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
+
+      {/* Chat Interface */}
+      <ChatInterface 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onGetRecommendations={handleChatRecommendations}
+      />
     </div>
   );
 };

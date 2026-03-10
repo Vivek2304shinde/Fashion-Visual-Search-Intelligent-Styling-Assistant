@@ -9,3 +9,11 @@ clip-by-openai==1.0
 faiss-cpu==1.7.4
 opencv-python==4.8.1.78
 python-jose[cryptography]==3.3.0
+
+# AI Stylist Dependencies
+openai>=1.0.0
+langchain>=0.1.0
+python-dotenv>=1.0.0
+tenacity>=8.0.0
+aiohttp>=3.9.0
+asyncio>=3.4.3

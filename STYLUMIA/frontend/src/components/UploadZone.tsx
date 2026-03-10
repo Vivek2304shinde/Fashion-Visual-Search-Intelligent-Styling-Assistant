@@ -1,9 +1,10 @@
 import { Search as SearchIcon } from 'lucide-react';
 import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, Image as ImageIcon, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, Image as ImageIcon, Loader2, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react';
 import { apiService, SearchResult } from '../services/api';
 import { searchByText } from '../api/search';
 import { useNavigate } from 'react-router-dom';
+import ChatInterface from './ChatInterface';
 
 interface UploadZoneProps {
   onFileUpload?: (file: File) => void;
@@ -23,6 +24,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [searchMode, setSearchMode] = useState<'image' | 'text'>('image');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Check backend connection
   useEffect(() => {
@@ -85,6 +87,16 @@ const UploadZone: React.FC<UploadZoneProps> = ({
     try {
       const { results, total_found } = await apiService.searchByImage(file, 8);
       showStatus(`Found ${total_found} similar products!`, 'success');
+      
+      // Navigate to results page with the search results
+      navigate('/results', {
+        state: {
+          searchResults: results,
+          searchMode: 'image',
+          uploadedImage: file
+        }
+      });
+      
       onSearchResults?.(results);
     } catch (error) {
       console.error('Image search failed:', error);
@@ -348,6 +360,22 @@ const UploadZone: React.FC<UploadZoneProps> = ({
           </div>
         )}
       </div>
+
+        
+
+      {/* Chat Interface */}
+      <ChatInterface 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onGetRecommendations={(recommendations) => {
+          console.log('Got recommendations:', recommendations);
+          if (recommendations?.outfit_plan) {
+            // You can handle recommendations here
+            // For now, just show a status message
+            showStatus('Got styling recommendations! Check the For You tab.', 'success');
+          }
+        }}
+      />
     </div>
   );
 };

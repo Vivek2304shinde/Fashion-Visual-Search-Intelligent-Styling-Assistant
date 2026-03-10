@@ -1,15 +1,14 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { Toaster as Sonner } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import ResultsPage from "./components/ResultsPage"; // Adjust path as needed
+import ResultsPage from "./components/ResultsPage";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient();
-
 
 const ResultsPageWrapper = () => {
   const location = useLocation();
@@ -23,7 +22,6 @@ const ResultsPageWrapper = () => {
   );
 };
 
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -32,7 +30,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-           <Route path="/results" element={<ResultsPageWrapper />} />
+          <Route path="/results" element={<ResultsPageWrapper />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

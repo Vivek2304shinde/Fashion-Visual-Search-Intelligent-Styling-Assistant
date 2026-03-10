@@ -1,15 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
-import UploadZone from '@/components/UploadZone';
-import LoadingState from '@/components/LoadingState';
-import ResultsPage from '@/components/ResultsPage';
-import SplashScreen from '@/components/common/SplashScreen';
+import UploadZone from '../components/UploadZone';
+import LoadingState from '../components/LoadingState';
+import ResultsPage from '../components/ResultsPage';
+import SplashScreen from '../components/common/SplashScreen';
+import AIStylistButton from '../components/chat/AIStylistButton';
+import AIStylistChat from '../components/chat/AIStylistChat';
 
 type AppState = 'splash' | 'upload' | 'loading' | 'results';
 
 const Index: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('splash');
   const [uploadedImage, setUploadedImage] = useState<string>('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Show splash screen for 2 seconds on app load
   useEffect(() => {
@@ -113,6 +115,11 @@ const Index: React.FC = () => {
     }, 800);
   };
 
+  const handleChatRecommendations = () => {
+    setIsChatOpen(false);
+    // You can handle recommendations here if needed
+  };
+
   // Render different states
   switch (appState) {
     case 'splash':
@@ -120,9 +127,29 @@ const Index: React.FC = () => {
     case 'loading':
       return <LoadingState />;
     case 'results':
-      return <ResultsPage uploadedImage={uploadedImage} />;
+      return (
+        <>
+          <ResultsPage uploadedImage={uploadedImage} />
+          <AIStylistButton onClick={() => setIsChatOpen(true)} />
+          <AIStylistChat 
+            isOpen={isChatOpen} 
+            onClose={() => setIsChatOpen(false)} 
+            onRecommendationsReady={handleChatRecommendations} 
+          />
+        </>
+      );
     default:
-      return <UploadZone onFileUpload={handleFileUpload} />;
+      return (
+        <>
+          <UploadZone onFileUpload={handleFileUpload} />
+          <AIStylistButton onClick={() => setIsChatOpen(true)} />
+          <AIStylistChat 
+            isOpen={isChatOpen} 
+            onClose={() => setIsChatOpen(false)} 
+            onRecommendationsReady={handleChatRecommendations} 
+          />
+        </>
+      );
   }
 };
 
