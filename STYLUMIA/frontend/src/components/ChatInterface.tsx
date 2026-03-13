@@ -53,20 +53,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ isOpen, onClose, onGetRec
 
     const userMessage = inputMessage;
     setInputMessage('');
-    
-    // Add user message immediately
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: userMessage
-    }]);
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
 
     try {
       const response = await aiStylistService.sendMessage(userMessage);
       setMessages(aiStylistService.getMessages());
 
-      if (aiStylistService.isReadyForRecommendations() && onGetRecommendations) {
-        const recommendations = await aiStylistService.getRecommendations();
-        onGetRecommendations(recommendations);
+      console.log('💬 ChatInterface: sendMessage response:', response);
+      console.log('💬 ChatInterface: collectedInfo:', aiStylistService.getCollectedInfo());
+      console.log('💬 ChatInterface: backend ready_for_recommendation:', response.ready_for_recommendation);
+
+      if (response.ready_for_recommendation && onGetRecommendations) {
+        console.log('💬 ChatInterface: Ready, fetching recommendations...');
+        // Show a temporary message
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: '✨ Looking for the perfect outfit recommendations for you...'
+        }]);
+
+        try {
+          const recommendations = await aiStylistService.getRecommendations();
+          console.log('💬 ChatInterface: Recommendations received:', recommendations);
+          onGetRecommendations(recommendations);
+        } catch (recErr) {
+          console.error('💬 ChatInterface: Failed to get recommendations:', recErr);
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: 'Sorry, I could not fetch recommendations. Please try again.'
+          }]);
+        } finally {
+          // ALWAYS close the chat, regardless of success or failure
+          console.log('💬 ChatInterface: Calling onClose()');
+          onClose();
+        }
       }
     } catch (error) {
       console.error('Failed to send message:', error);

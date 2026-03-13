@@ -1,201 +1,297 @@
 """
-Fixed Conversation Manager - With STRICT extraction rules
+Fixed Conversation Manager - With DEBUGGING
 """
 
 import json
 import os
 import re
+import traceback
 from typing import Dict, Any, List
 from groq import Groq
 
 class ConversationManagerFixed:
     """
-    Conversation manager with strict intent extraction rules.
-    MUST extract gender, occasion, and other preferences.
+    Conversation manager with proper context handling.
+    Maintains conversation history and extracts information progressively.
     """
     
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL", "https://api.groq.com")
+        base_url = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
         
-        print(f"🔧 ConversationManagerFixed initializing...")
-        print(f"   API Key set: {'Yes' if api_key else 'No'}")
+        print("\n" + "="*60)
+        print("🔧 ConversationManagerFixed INITIALIZING...")
+        print("="*60)
+        print(f"   API Key: {api_key[:10]}...{api_key[-5:] if len(api_key) > 15 else 'too short'}")
+        print(f"   Base URL: {base_url}")
         
-        self.client = Groq(api_key=api_key, base_url=base_url)
-        self.model = "llama-3.3-70b-versatile"
-        
-        # Test client
+        # Initialize client
         try:
-            test_response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": "Say OK"}],
-                max_tokens=5
-            )
-            print(f"✅ Groq test passed")
+            self.client = Groq(api_key=api_key)
+            self.model = "llama-3.3-70b-versatile"
+            print(f"✅ Client initialized with model: {self.model}")
         except Exception as e:
-            print(f"❌ Groq test failed: {e}")
+            print(f"❌ Client initialization failed: {e}")
+            traceback.print_exc()
+            self.client = None
         
-        # STRICT PROMPT with required fields
+        # Test client if initialized
+        if self.client:
+            try:
+                print("\n🔍 Testing Groq connection...")
+                test_response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Say 'OK' in one word"}],
+                    max_tokens=5,
+                    temperature=0
+                )
+                test_result = test_response.choices[0].message.content
+                print(f"✅ Groq test passed: '{test_result}'")
+            except Exception as e:
+                print(f"❌ Groq test failed: {e}")
+                traceback.print_exc()
+                self.client = None
+        
+        print("="*60 + "\n")
+        
+        # Enhanced system prompt
         self.SYSTEM_PROMPT = """You are a friendly, warm AI fashion stylist. Your job is to have a natural conversation while EXTRACTING specific information.
 
-CRITICAL - YOU MUST EXTRACT THESE FIELDS (in order of priority):
-1. gender (male/female/unisex) - This is MANDATORY. If not mentioned, ask for it.
-2. occasion (wedding/party/office/casual/etc.) - This is MANDATORY.
-3. style_preference (formal/casual/traditional/etc.)
-4. color_preference (any specific colors mentioned)
-5. budget_tier (budget/mid_range/premium/luxury based on clues or amounts)
+IMPORTANT RULES:
+1. Track what information you've already collected - don't ask for it again
+2. Ask natural follow-up questions based on previous answers
+3. Be warm and use emojis! 😊
+4. When you have enough info, suggest moving to recommendations
+
+Information to collect (in priority order):
+1. gender (male/female/unisex) - Ask if not provided
+2. occasion (wedding/party/office/casual/etc.) - Ask if not provided
+3. style_preference (formal/casual/traditional/trendy etc.)
+4. color_preference (specific colors or color families)
+5. budget_tier (budget/mid_range/premium/luxury)
 6. season (summer/winter/spring/fall/monsoon)
-7. specific_preferences - Capture ANY specific details like:
-   - Fit preferences (baggy, slim, regular, oversized)
-   - Specific items (jeans, shirt, dress, etc.)
-   - Fabric preferences (cotton, linen, silk)
-   - Any other specific requirements
+7. specific_preferences (fit, fabric, specific items, etc.)
 
-CONVERSATION RULES:
-- Be friendly and use emojis! 😊
-- If gender is not mentioned in first message, politely ask for it
-- If occasion is not mentioned, ask about it
-- Don't ask all questions at once - make it natural
-- When you have gender + occasion + at least 2 other details, set ready_for_recommendations to true
+CURRENT CONVERSATION HISTORY:
+{conversation_history}
 
-Current collected info: {collected_info}
-User message: {message}
+CURRENT COLLECTED INFO:
+{collected_info}
+
+LATEST USER MESSAGE: {message}
 
 Respond in this EXACT JSON format:
 {
-    "response": "your friendly message here with emojis ✨",
+    "response": "your friendly, contextual message here with emojis ✨",
     "extracted_info": {
-        "gender": null,
-        "occasion": null,
-        "style_preference": null,
-        "color_preference": null,
-        "budget_tier": null,
-        "season": null,
-        "specific_preferences": {}
+        "gender": null or extracted value,
+        "occasion": null or extracted value,
+        "style_preference": null or extracted value,
+        "color_preference": null or extracted value,
+        "budget_tier": null or extracted value,
+        "season": null or extracted value,
+        "specific_preferences": {} or extracted details
     },
-    "ready_for_recommendations": false
+    "ready_for_recommendations": false/true
 }
+
+EXTRACTION RULES:
+- Only extract information that's explicitly mentioned in the conversation
+- For gender: look for words like male, female, man, woman, boy, girl, unisex
+- For occasion: look for words like wedding, party, office, work, casual, date, etc.
+- For budget: look for price mentions, budget constraints, or luxury indicators
+- If information is already collected, don't extract it again (keep existing value)
 
 Return ONLY valid JSON, no other text."""
     
     def _extract_json(self, text: str) -> Dict:
         """Extract JSON from text, handling various formats"""
+        print(f"\n🔍 Extracting JSON from: '{text[:100]}...'")
+        
+        # Clean the text first
+        text = text.strip()
+        
+        # Remove markdown code blocks
+        if text.startswith('```json'):
+            text = text[7:]
+        elif text.startswith('```'):
+            text = text[3:]
+        if text.endswith('```'):
+            text = text[:-3]
+        text = text.strip()
+        
         # Try to parse directly
         try:
-            return json.loads(text)
-        except:
+            result = json.loads(text)
+            print(f"✅ Direct JSON parse successful")
+            return result
+        except json.JSONDecodeError as e:
+            print(f"⚠️ Direct JSON parse failed: {e}")
             pass
         
         # Try to find JSON between curly braces
         try:
-            match = re.search(r'\{.*\}', text, re.DOTALL)
+            match = re.search(r'\{[\s\S]*\}', text)
             if match:
-                return json.loads(match.group())
-        except:
+                json_str = match.group()
+                result = json.loads(json_str)
+                print(f"✅ Extracted JSON from braces")
+                return result
+        except Exception as e:
+            print(f"⚠️ Brace extraction failed: {e}")
             pass
         
         # Default fallback
+        print(f"⚠️ Using fallback response")
         return {
             "response": "Tell me more about what you're looking for! 😊",
             "extracted_info": {},
             "ready_for_recommendations": False
         }
     
+    def _format_conversation_history(self, messages: List[Dict]) -> str:
+        """Format conversation history for the prompt"""
+        if not messages:
+            return "No previous messages."
+        
+        history = []
+        for msg in messages[-5:]:  # Keep last 5 messages for context
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history.append(f"{role}: {msg['content']}")
+        
+        return "\n".join(history)
+    
     def process_message(self, message: str, context: Dict) -> Dict:
+        print("\n" + "="*60)
+        print("📤 PROCESSING MESSAGE")
+        print("="*60)
+        print(f"Message: '{message}'")
+        print(f"Context keys: {list(context.keys())}")
+        
         try:
+            # Get conversation history from context or initialize empty
+            conversation_history = context.get("conversation_history", [])
             collected = context.get("collected_info", {})
             
-            # Format collected info
-            collected_json = json.dumps(collected)
+            print(f"\n📊 Current collected info: {json.dumps(collected, indent=2)}")
+            print(f"📜 Conversation history length: {len(conversation_history)}")
             
-            # Build prompt
-            prompt = self.SYSTEM_PROMPT.replace("__COLLECTED_INFO__", collected_json)
-            prompt = prompt.replace("__MESSAGE__", message)
-            
-            print(f"\n📤 Sending to Groq: {message[:50]}...")
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a JSON-only fashion assistant. Always respond with valid JSON. You MUST extract gender and occasion."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
-            
-            text = response.choices[0].message.content
-            print(f"📥 Raw: {text[:100]}...")
-            
-            # Clean the response
-            text = text.strip()
-            if text.startswith('```json'):
-                text = text[7:]
-            elif text.startswith('```'):
-                text = text[3:]
-            if text.endswith('```'):
-                text = text[:-3]
-            text = text.strip()
-            
-            # Extract JSON
-            try:
-                result = json.loads(text)
-            except json.JSONDecodeError:
-                match = re.search(r'\{.*\}', text, re.DOTALL)
-                if match:
-                    result = json.loads(match.group())
-                else:
-                    result = {
-                        "response": text[:200] if text else "Tell me more!",
-                        "extracted_info": {},
-                        "ready_for_recommendations": False
-                    }
-            
-            # Ensure result is a dictionary
-            if not isinstance(result, dict):
-                result = {
-                    "response": str(result),
-                    "extracted_info": {},
-                    "ready_for_recommendations": False
+            # Check if client exists
+            if not self.client:
+                print("❌ Groq client not initialized!")
+                return {
+                    "response": "I'm here to help! What kind of outfit are you looking for? 😊",
+                    "updated_context": context,
+                    "ready_for_recommendation": False,
+                    "extracted_info": {}
                 }
             
-            # Ensure required keys
-            if "response" not in result:
-                result["response"] = "Thanks for sharing! Tell me more."
-            if "extracted_info" not in result:
-                result["extracted_info"] = {}
-            if "ready_for_recommendations" not in result:
-                result["ready_for_recommendations"] = False
+            # Format conversation history
+            history_str = self._format_conversation_history(conversation_history)
+            
+            # Format collected info
+            collected_json = json.dumps(collected, indent=2)
+            
+            # Build prompt with all context
+            prompt = self.SYSTEM_PROMPT.replace("{conversation_history}", history_str)
+            prompt = prompt.replace("{collected_info}", collected_json)
+            prompt = prompt.replace("{message}", message)
+            
+            print(f"\n🤖 Sending to Groq...")
+            print(f"   Model: {self.model}")
+            print(f"   Prompt length: {len(prompt)} chars")
+            
+            # Call Groq
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a JSON-only fashion assistant. Always respond with valid JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=500
+                )
+                
+                raw_response = response.choices[0].message.content
+                print(f"\n📥 Raw response received:")
+                print(f"   Length: {len(raw_response)} chars")
+                print(f"   Preview: {raw_response[:200]}...")
+                
+            except Exception as e:
+                print(f"❌ Groq API call failed: {e}")
+                traceback.print_exc()
+                return {
+                    "response": "I'm here to help! Tell me more about what you're looking for. 😊",
+                    "updated_context": context,
+                    "ready_for_recommendation": False,
+                    "extracted_info": {}
+                }
+            
+            # Extract JSON from response
+            result = self._extract_json(raw_response)
+            print(f"\n✅ Parsed result:")
+            print(f"   Response: {result.get('response', 'N/A')[:100]}...")
+            print(f"   Extracted: {json.dumps(result.get('extracted_info', {}))}")
+            print(f"   Ready: {result.get('ready_for_recommendations', False)}")
+            
+            # Update conversation history
+            if "conversation_history" not in context:
+                context["conversation_history"] = []
+            
+            # Add current messages to history
+            context["conversation_history"].append({"role": "user", "content": message})
+            context["conversation_history"].append({"role": "assistant", "content": result.get("response", "")})
             
             # Update collected info
             extracted = result.get("extracted_info", {})
-            for k, v in extracted.items():
-                if v and v != "null" and v not in [None, "", "None"]:
-                    if k == "specific_preferences" and isinstance(v, dict):
-                        if "specific_preferences" not in collected:
-                            collected["specific_preferences"] = {}
-                        collected["specific_preferences"].update(v)
-                    elif v:
-                        collected[k] = v
+            updated_collected = collected.copy()
+            
+            for key, value in extracted.items():
+                if value and value not in [None, "null", "", "None"]:
+                    if key == "specific_preferences" and isinstance(value, dict):
+                        if "specific_preferences" not in updated_collected:
+                            updated_collected["specific_preferences"] = {}
+                        updated_collected["specific_preferences"].update(value)
+                    elif value:  # Only update if value is not empty
+                        updated_collected[key] = value
+                        print(f"   ✅ Updated {key}: {value}")
             
             # Check if we have minimum required fields
-            has_gender = collected.get("gender") not in [None, "null", ""]
-            has_occasion = collected.get("occasion") not in [None, "null", ""]
-            other_details = sum(1 for k in ["style_preference", "color_preference", "budget_tier", "season"] 
-                              if collected.get(k) not in [None, "null", ""])
+            has_gender = updated_collected.get("gender") not in [None, "null", ""]
+            has_occasion = updated_collected.get("occasion") not in [None, "null", ""]
             
-            ready = has_gender and has_occasion and other_details >= 2
+            # Count other fields
+            other_fields = [k for k in ["style_preference", "color_preference", "budget_tier", "season"] 
+                          if updated_collected.get(k) not in [None, "null", ""]]
+            
+            # Add specific_preferences if it has content
+            if updated_collected.get("specific_preferences") and len(updated_collected["specific_preferences"]) > 0:
+                other_fields.append("specific_preferences")
+            
+            ready = has_gender and has_occasion and len(other_fields) >= 1
+            
+            print(f"\n📊 Update summary:")
+            print(f"   - Has gender: {has_gender} ({updated_collected.get('gender', 'None')})")
+            print(f"   - Has occasion: {has_occasion} ({updated_collected.get('occasion', 'None')})")
+            print(f"   - Other fields: {other_fields}")
+            print(f"   - Ready for recommendations: {ready}")
             
             return {
-                "response": result["response"],
-                "updated_context": {"collected_info": collected},
+                "response": result.get("response", "Tell me more about what you're looking for! 😊"),
+                "updated_context": {
+                    "collected_info": updated_collected,
+                    "conversation_history": context["conversation_history"]
+                },
                 "ready_for_recommendation": ready,
                 "extracted_info": extracted
             }
             
         except Exception as e:
-            print(f"❌ Error in process_message: {e}")
-            import traceback
+            print(f"\n❌ UNEXPECTED ERROR in process_message:")
+            print(f"   Error: {e}")
             traceback.print_exc()
+            
             return {
                 "response": "I'm here to help! What kind of outfit are you looking for? 😊",
                 "updated_context": context,

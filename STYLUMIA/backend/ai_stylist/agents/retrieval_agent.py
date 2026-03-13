@@ -53,16 +53,16 @@ class RetrievalAgent:
                 max_results=max_results_per_category,
                 spec=spec
             )
-            tasks.append(task)
+            tasks.append((task, gender))   # <-- store gender with task
         
         # Run retrievals in parallel
         results = await asyncio.gather(*[
-            self._retrieve_single_category(task) for task in tasks
+            self._retrieve_single_category(task, gender) for task, gender in tasks
         ], return_exceptions=True)
         
         # Organize results
         products_by_category = {}
-        for task, result in zip(tasks, results):
+        for (task, _), result in zip(tasks, results):
             if isinstance(result, Exception):
                 print(f"❌ Failed to retrieve {task.category}: {result}")
                 products_by_category[task.category] = []
@@ -71,16 +71,16 @@ class RetrievalAgent:
         
         return products_by_category
     
-    async def _retrieve_single_category(self, task: ScrapingTask) -> List[Product]:
+    async def _retrieve_single_category(self, task: ScrapingTask, gender: str) -> List[Product]:
         """
         Retrieve products for a single category with multiple query attempts.
         """
         all_products = []
         search_queries = self._generate_search_queries(
-            task.category, task.spec, "men women"
+            task.category, task.spec, gender   # <-- use the passed gender
         )
         
-        print(f"🔍 Retrieving {task.category}...")
+        print(f"🔍 Retrieving {task.category} with gender '{gender}'...")
         
         for query_idx, query in enumerate(search_queries[:5]):  # Max 5 queries
             try:

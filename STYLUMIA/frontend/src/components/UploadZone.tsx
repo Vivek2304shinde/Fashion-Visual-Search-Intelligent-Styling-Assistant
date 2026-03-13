@@ -361,18 +361,22 @@ const UploadZone: React.FC<UploadZoneProps> = ({
         )}
       </div>
 
-        
-
       {/* Chat Interface */}
       <ChatInterface 
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        onClose={() => {
+          console.log('🔒 UploadZone: Chat onClose called, setting isChatOpen false');
+          setIsChatOpen(false);
+        }}
         onGetRecommendations={(recommendations) => {
-          console.log('Got recommendations:', recommendations);
+          console.log('📤 UploadZone: onGetRecommendations called with:', recommendations);
           if (recommendations?.outfit_plan) {
-            // You can handle recommendations here
-            // For now, just show a status message
-            showStatus('Got styling recommendations! Check the For You tab.', 'success');
+            // Store in sessionStorage
+            sessionStorage.setItem('outfitPlan', JSON.stringify(recommendations.outfit_plan));
+            sessionStorage.setItem('stylingAdvice', recommendations.styling_advice || '');
+            sessionStorage.setItem('recommendedProducts', JSON.stringify(recommendations.products || {}));
+            // Navigate with a flag
+            navigate('/results', { state: { fromChat: true } });
           }
         }}
       />

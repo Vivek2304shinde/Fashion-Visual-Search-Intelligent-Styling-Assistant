@@ -25,7 +25,7 @@ print("🔥 COMPLETE REAL FLOW DEBUG - NO MOCK DATA")
 print("="*80)
 print(f"✅ API URL: {os.getenv('OPENAI_BASE_URL', 'https://api.groq.com')}")
 print(f"✅ Model: llama-3.3-70b-versatile")
-print(f"✅ API Key: {'✓ Set' if os.getenv('OPENAI_API_KEY') else '✗ Missing'}")
+print(f"✅ API Key: {'✓ Set' if os.getenv('GROQ_API_KEY') else '✗ Missing'}")
 print("="*80)
 
 # Import agents

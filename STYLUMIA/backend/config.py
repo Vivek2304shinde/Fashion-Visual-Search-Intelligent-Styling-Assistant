@@ -9,8 +9,8 @@ load_dotenv()
 
 class Config:
     # API Keys
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")  # ← ADD THIS LINE!
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")  
     
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")  # Will be overridden by .env
@@ -36,4 +36,4 @@ config = Config()
 print(f"✅ Config loaded:")
 print(f"   - Using API URL: {config.OPENAI_BASE_URL or 'https://api.openai.com/v1 (default)'}")
 print(f"   - Model: {config.LLM_MODEL}")
-print(f"   - API Key set: {bool(config.OPENAI_API_KEY)}")
+print(f"   - API Key set: {bool(config.GROQ_API_KEY)}")

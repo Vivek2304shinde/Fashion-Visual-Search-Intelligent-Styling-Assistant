@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Stylist API Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        #output { 
+            height: 400px; 
+            overflow-y: scroll; 
+            border: 1px solid #ccc; 
+            padding: 10px;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+        .user { color: blue; margin: 5px 0; }
+        .assistant { color: green; margin: 5px 0; }
+        .error { color: red; margin: 5px 0; }
+        .system { color: gray; margin: 5px 0; font-style: italic; }
+        input, button { padding: 8px; margin: 5px; }
+        input { width: 70%; }
+        button { width: 20%; cursor: pointer; }
+        button:hover { background: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <h2>🤖 AI Stylist API Test</h2>
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="startNewChat()">New Chat</button>
+    
+    <div id="output"></div>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let sessionId = null;
+        const output = document.getElementById('output');
+
+        function log(message, type = 'system') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function testConnection() {
+            try {
+                log('Testing connection to backend...', 'system');
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                log(`✅ Connected! Server status: ${JSON.stringify(data)}`, 'system');
+            } catch (error) {
+                log(`❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function startNewChat() {
+            try {
+                log('Starting new conversation...', 'system');
+                const response = await fetch(`${API_BASE}/api/stylist/conversation/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initial_message: 'Hello, I need styling help' })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                log(`✅ Session started: ${sessionId}`, 'system');
+                log(`🤖 AI: ${data.message}`, 'assistant');
+            } catch (error) {
+                log(`❌ Failed to start chat: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            if (!sessionId) {
+                log('⚠️ No active session. Starting new chat...', 'system');
+                await startNewChat();
+                if (!sessionId) return;
+            }
+            
+            log(`👤 You: ${message}`, 'user');
+            input.value = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stylist/conversation/${sessionId}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                log(`🤖 AI: ${data.message}`, 'assistant');
+                
+                if (data.collected_info && Object.keys(data.collected_info).length > 0) {
+                    log(`📊 Collected: ${JSON.stringify(data.collected_info)}`, 'system');
+                }
+                
+                if (data.ready_for_recommendation) {
+                    log('🎯 Ready for recommendations! Click "Get Recommendations"', 'system');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Test connection on page load
+        window.onload = testConnection;
+    </script>
+</body>
+</html>

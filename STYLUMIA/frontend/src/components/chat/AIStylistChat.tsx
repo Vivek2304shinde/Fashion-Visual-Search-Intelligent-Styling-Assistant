@@ -11,7 +11,7 @@ interface Message {
 interface AIStylistChatProps {
   isOpen: boolean;
   onClose: () => void;
-  onRecommendationsReady: () => void;
+  onRecommendationsReady: (outfitPlan?: any) => void;
 }
 
 const TypingIndicator: React.FC = () => (
@@ -30,20 +30,19 @@ const TypingIndicator: React.FC = () => (
 );
 
 const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecommendationsReady }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hey there! 😊 I'm your AI Stylist. Tell me what kind of outfit you're looking for — describe the vibe, occasion, or style you love!",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [show, setShow] = useState(false);
 
+  // Initialize chat when opened
   useEffect(() => {
+    if (isOpen && !sessionStarted) {
+      startNewChat();
+    }
     if (isOpen) {
       setShow(true);
       setTimeout(() => inputRef.current?.focus(), 400);
@@ -56,35 +55,60 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isTyping) return;
-
-    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
+  const startNewChat = async () => {
     setIsTyping(true);
-
     try {
-      const response = await aiStylistService.sendMessage(text);
+      await aiStylistService.startConversation();
       setMessages(aiStylistService.getMessages());
-
-      if (aiStylistService.isReadyForRecommendations()) {
-        setTimeout(() => {
-          onRecommendationsReady();
-        }, 1200);
-      }
+      setSessionStarted(true);
     } catch (error) {
-      console.error('Failed to send message:', error);
-      setMessages((prev) => [...prev, {
-        id: `a-${Date.now()}`,
+      console.error('Failed to start chat:', error);
+      setMessages([{
+        id: 'error',
         role: 'assistant',
-        content: "Sorry, I'm having trouble responding. Please try again."
+        content: "Sorry, I'm having trouble connecting. Please try again."
       }]);
     } finally {
       setIsTyping(false);
     }
-  }, [input, isTyping, onRecommendationsReady]);
+  };
+
+const handleSend = useCallback(async () => {
+  const text = input.trim();
+  if (!text || isTyping || !sessionStarted) return;
+
+  const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
+  setMessages((prev) => [...prev, userMsg]);
+  setInput('');
+  setIsTyping(true);
+
+  try {
+    const response = await aiStylistService.sendMessage(text);
+    setMessages(aiStylistService.getMessages());
+
+    if (aiStylistService.isReadyForRecommendations()) {
+      // Optionally add a temporary message
+      setMessages((prev) => [...prev, {
+        id: `temp-${Date.now()}`,
+        role: 'assistant',
+        content: '✨ Looking for the perfect outfit recommendations for you...'
+      }]);
+      
+      const recommendations = await aiStylistService.getRecommendations();
+      onRecommendationsReady(recommendations);
+      onClose(); // <-- close the chat
+    }
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    setMessages((prev) => [...prev, {
+      id: `a-${Date.now()}`,
+      role: 'assistant',
+      content: "Sorry, I'm having trouble responding. Please try again."
+    }]);
+  } finally {
+    setIsTyping(false);
+  }
+}, [input, isTyping, sessionStarted, onRecommendationsReady, onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -127,7 +151,11 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-gray-800 text-sm">AI Stylist Assistant</h3>
-            <p className="text-xs text-gray-500">Describe the outfit you're looking for</p>
+            <p className="text-xs text-gray-500">
+              {aiStylistService.isReadyForRecommendations() 
+                ? "Ready to style you! ✨" 
+                : "Tell me about your outfit needs"}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -139,30 +167,37 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0" style={{ maxHeight: 'calc(100% - 140px)' }}>
-          {messages.map((msg, index) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#8B4513] to-[#D4AF37] flex items-center justify-center mr-2 mt-1 flex-shrink-0 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-white" />
-                </div>
-              )}
-              <div
-                className={`
-                  max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed
-                  ${msg.role === 'user'
-                    ? 'bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white rounded-br-md'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-md'
-                  }
-                `}
-              >
-                {msg.content}
-              </div>
+          {messages.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <Sparkles className="w-12 h-12 mx-auto mb-3 text-[#D4AF37] animate-pulse" />
+              <p>Starting your styling session...</p>
             </div>
-          ))}
+          ) : (
+            messages.map((msg, index) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#8B4513] to-[#D4AF37] flex items-center justify-center mr-2 mt-1 flex-shrink-0 shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+                <div
+                  className={`
+                    max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed
+                    ${msg.role === 'user'
+                      ? 'bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white rounded-br-md'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                    }
+                  `}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))
+          )}
 
           {isTyping && <TypingIndicator />}
           <div ref={chatEndRef} />
@@ -179,11 +214,11 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
               onKeyDown={handleKeyDown}
               placeholder="Describe your outfit needs…"
               className="flex-1 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none"
-              disabled={isTyping}
+              disabled={isTyping || !sessionStarted}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isTyping || !sessionStarted}
               className="
                 w-8 h-8 rounded-full flex items-center justify-center
                 bg-gradient-to-r from-[#8B4513] to-[#D4AF37]

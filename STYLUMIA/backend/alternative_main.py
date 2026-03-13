@@ -153,6 +153,14 @@ chat_sessions: Dict[str, ChatSession] = {}
 from ai_stylist.agents.conversation_manager_fixed import ConversationManagerFixed
 conversation_manager = ConversationManagerFixed()
 
+from ai_stylist.agents.retrieval_agent import RetrievalAgent
+from ai_stylist.schemas import CategorySpec
+
+retrieval_agent = RetrievalAgent()
+logger.info("✅ Retrieval Agent initialized")
+
+
+
 # =========================
 # HEALTH CHECK ENDPOINT
 # =========================
@@ -174,7 +182,7 @@ async def health_check():
     }
 
 # =========================
-# MAIN IMAGE SEARCH ENDPOINT (FROM YOUR OLD WORKING CODE)
+# MAIN IMAGE SEARCH ENDPOINT 
 # =========================
 @app.post("/search")
 async def search_by_image(file: UploadFile = File(...), top_k: int = 30):
@@ -531,26 +539,60 @@ async def get_intelligent_recommendations(session_id: str):
         session = chat_sessions[session_id]
         collected_info = session.context.get("collected_info", {})
         
-        # Get outfit plan
+        # Debug: print collected_info and extracted gender
+        print(f"🔍 DEBUG collected_info: {collected_info}")
+        gender = collected_info.get("gender", "unisex")
+        print(f"🔍 DEBUG gender from collected_info: {gender}")
+        
+        # 1. Get outfit plan from stylist agent
         outfit_plan = await stylist_agent.create_outfit_plan(collected_info)
         
-        # Extract search queries
-        search_queries = stylist_agent.extract_categories_for_scraping(outfit_plan)
+        # 2. Generate search queries with correct gender
+        search_queries = stylist_agent.extract_categories_for_scraping(
+            outfit_plan, 
+            gender=gender
+        )
         
-        # Store in session
+        # 3. Build category specs from outfit plan details
+        categories_spec = {}
+        for category, details in outfit_plan.get("outfit_plan", {}).items():
+            if isinstance(details, dict):
+                spec = CategorySpec()
+                if "color" in details:
+                    # Use the first word of the color description as primary color
+                    spec.color = details["color"].split()[0]
+                categories_spec[category] = spec
+        
+        # 4. Retrieve products from Myntra using retrieval agent
+        products_by_category = await retrieval_agent.retrieve(
+            categories=categories_spec,
+            gender=gender,
+            max_results_per_category=10
+        )
+        
+        # 5. Convert Product objects to dictionaries for JSON response
+        products_serializable = {}
+        for cat, prod_list in products_by_category.items():
+            products_serializable[cat] = [p.dict() for p in prod_list]
+        
+        # 6. Store in session for later use
         session.context["outfit_plan"] = outfit_plan
+        session.context["products"] = products_serializable
         
         return {
             "success": True,
             "outfit_plan": outfit_plan.get("outfit_plan", {}),
-            "styling_advice": outfit_plan.get("styling_advice", "")
+            "styling_advice": outfit_plan.get("styling_advice", ""),
+            "products_found": {k: len(v) for k, v in products_serializable.items()},
+            "products": products_serializable
         }
         
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"❌ Error in recommendation: {e}")
         traceback.print_exc()
         raise HTTPException(500, str(e))
-
+    
+    
 # =========================
 # ERROR HANDLERS
 # =========================

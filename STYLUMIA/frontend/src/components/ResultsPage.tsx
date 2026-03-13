@@ -3,7 +3,9 @@ import { Heart, ShoppingBag, Sparkles, Shirt, MessageCircle } from 'lucide-react
 import PageHeader from './layout/PageHeader';
 import TabNavigation from './layout/TabNavigation';
 import ComplementaryOutfits from './sections/ComplementaryOutfits';
+import OutfitPlanDisplay from './sections/OutfitPlanDisplay';
 import { apiService, SearchResult } from '../services/api';
+import { aiStylistService } from '../services/aiStylist';
 import { useLocation } from 'react-router-dom';
 import ChatInterface from './ChatInterface';
 
@@ -40,28 +42,34 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  
+  // New state for outfit plans
+  const [outfitPlan, setOutfitPlan] = useState<any>(null);
+  const [stylingAdvice, setStylingAdvice] = useState<string>('');
+  const [recommendedProducts, setRecommendedProducts] = useState<Record<string, any[]>>({});
 
   // Debug logs
-  console.log("Rendering ResultsPage with:", {
+  console.log("🎨 ResultsPage rendered with props:", {
     searchResults,
     searchMode,
     searchQuery,
     uploadedImage,
     productsCount: products.length
   });
-  console.log("Location state:", location.state);
+  console.log("📍 ResultsPage location.state:", location.state);
 
   // Use location state if props not provided
   useEffect(() => {
     if (location.state) {
       if (location.state.searchResults && !searchResults) {
+        console.log('📦 ResultsPage: setting searchResults from location.state', location.state.searchResults);
         setProducts(location.state.searchResults);
       }
     }
   }, [location.state, searchResults]);
 
   const fetchProducts = useCallback(async () => {
-    console.log('Starting product fetch...');
+    console.log('🎨 ResultsPage: Starting product fetch...');
     setLoading(true);
     setError(null);
     
@@ -79,9 +87,10 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
       }
 
       const searchResponse = await apiService.searchByImage(fileToUpload, 5);
+      console.log('🎨 ResultsPage: image search response', searchResponse);
       setProducts(searchResponse.results);
     } catch (err) {
-      console.error('Fetch products failed:', err);
+      console.error('🎨 ResultsPage: Fetch products failed:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
@@ -89,16 +98,59 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
   }, [uploadedImage]);
 
   useEffect(() => {
-    console.log("Effect running with mode:", searchMode);
+    console.log("🎨 ResultsPage: Effect running with mode:", searchMode);
     
     if (searchMode === 'text' && searchResults) {
-      console.log("Setting text search results");
+      console.log("🎨 ResultsPage: Setting text search results", searchResults);
       setProducts(searchResults);
       setLoading(false);
     } else if (searchMode === 'image' && uploadedImage) {
       fetchProducts();
     }
   }, [searchResults, searchMode, uploadedImage, fetchProducts]);
+
+  // Handle chat recommendations from location.state or sessionStorage
+  useEffect(() => {
+    console.log("🎨 ResultsPage: useEffect for location.state triggered, state =", location.state);
+    
+    // First, try to get data from location.state (direct navigation)
+    if (location.state?.outfitPlan) {
+      console.log('📦 Received outfit plan from location.state:', location.state.outfitPlan);
+      setOutfitPlan(location.state.outfitPlan);
+      setStylingAdvice(location.state.stylingAdvice || '');
+      setRecommendedProducts(location.state.products || {});
+      setActiveTab('foryou');
+    }
+    // If location.state is empty but we came from chat (via flag), try sessionStorage
+    else if (location.state?.fromChat) {
+      console.log('🎨 ResultsPage: fromChat flag detected, checking sessionStorage');
+      const storedPlan = sessionStorage.getItem('outfitPlan');
+      const storedAdvice = sessionStorage.getItem('stylingAdvice');
+      const storedProducts = sessionStorage.getItem('recommendedProducts');
+      
+      if (storedPlan) {
+        try {
+          const parsedPlan = JSON.parse(storedPlan);
+          const parsedProducts = JSON.parse(storedProducts || '{}');
+          console.log('📦 Restored from sessionStorage:', { parsedPlan, parsedProducts });
+          
+          setOutfitPlan(parsedPlan);
+          setStylingAdvice(storedAdvice || '');
+          setRecommendedProducts(parsedProducts);
+          setActiveTab('foryou');
+          
+          // Clear sessionStorage to avoid stale data on refresh
+          sessionStorage.removeItem('outfitPlan');
+          sessionStorage.removeItem('stylingAdvice');
+          sessionStorage.removeItem('recommendedProducts');
+        } catch (e) {
+          console.error('Error parsing stored data', e);
+        }
+      } else {
+        console.log('🎨 ResultsPage: fromChat flag but no data in sessionStorage');
+      }
+    }
+  }, [location.state]);
 
   const toggleSaved = (id: string) => {
     setSavedItems(prev => {
@@ -113,12 +165,34 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
     setTimeout(() => setStatusMessage(''), 3000);
   };
 
-  const handleChatRecommendations = (recommendations: any) => {
-    console.log('Got recommendations from chat:', recommendations);
+  const handleChatRecommendations = async (recommendations: any) => {
+    console.log('🎯 ResultsPage: handleChatRecommendations called with:', recommendations);
     if (recommendations?.outfit_plan) {
+      console.log('✅ ResultsPage: Setting outfit plan from direct prop');
+      setOutfitPlan(recommendations.outfit_plan);
+      setStylingAdvice(recommendations.styling_advice || '');
+      
+      if (recommendations.products) {
+        setRecommendedProducts(recommendations.products);
+      } else {
+        try {
+          const products = await aiStylistService.getSessionProducts();
+          setRecommendedProducts(products);
+        } catch (error) {
+          console.error('Failed to fetch products:', error);
+        }
+      }
+      
       setActiveTab('foryou');
       showStatus('Got personalized styling recommendations!', 'success');
-      // You can store the recommendations in state to display them
+    } else {
+      console.warn('⚠️ ResultsPage: recommendations missing outfit_plan:', recommendations);
+    }
+  };
+
+  const handleViewProduct = (product: any) => {
+    if (product.product_url) {
+      window.open(product.product_url, '_blank');
     }
   };
 
@@ -139,7 +213,7 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
       foryou: {
         icon: <Sparkles className="w-16 h-16 text-slate-300" strokeWidth={1} />,
         title: "Your closet's lonely!",
-        subtitle: "Add some style sparks ✨",
+        subtitle: "Chat with AI Stylist to get personalized recommendations ✨",
       },
     };
 
@@ -156,14 +230,15 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
           <button 
             onClick={() => setIsChatOpen(true)}
             className="
-            w-16 h-16 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500
-            hover:from-amber-500 hover:to-yellow-600
-            text-white text-2xl font-light
-            hover-lift glow-on-hover
-            flex items-center justify-center
-            animate-gentle-pulse
-          ">
-            +
+              px-6 py-3 rounded-full bg-gradient-to-r from-[#8B4513] to-[#D4AF37]
+              hover:from-[#8B4513]/90 hover:to-[#D4AF37]/90
+              text-white font-medium
+              hover:shadow-xl transition-all
+              flex items-center gap-2
+            "
+          >
+            <MessageCircle className="w-4 h-4" />
+            Chat with AI Stylist
           </button>
         )}
       </div>
@@ -228,6 +303,8 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
   };
 
   const renderContent = () => {
+    console.log('🎨 ResultsPage: renderContent, activeTab =', activeTab, 'outfitPlan exists =', !!outfitPlan, 'products length =', products.length);
+
     if (loading) {
       return (
         <div className="flex justify-center items-center h-64">
@@ -260,6 +337,23 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
 
     if (activeTab === 'complementary') {
       return <ComplementaryOutfits uploadedImage={getImageAsString()} />;
+    }
+    
+    if (activeTab === 'foryou') {
+      console.log('🎨 ResultsPage: rendering foryou tab, outfitPlan keys =', outfitPlan ? Object.keys(outfitPlan) : 'null');
+      if (outfitPlan && Object.keys(outfitPlan).length > 0) {
+        return (
+          <OutfitPlanDisplay 
+            outfitPlan={outfitPlan} 
+            stylingAdvice={stylingAdvice}
+            products={recommendedProducts}
+            onViewProduct={handleViewProduct}
+          />
+        );
+      } else {
+        console.log('🎨 ResultsPage: No outfitPlan, showing EmptyState for foryou');
+      }
+      return <EmptyState type="foryou" />;
     }
     
     if (products.length > 0) {
@@ -318,7 +412,10 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
       {/* Chat Interface */}
       <ChatInterface 
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        onClose={() => {
+          console.log('🔒 ResultsPage: Chat onClose called, setting isChatOpen false');
+          setIsChatOpen(false);
+        }}
         onGetRecommendations={handleChatRecommendations}
       />
     </div>

@@ -1,3 +1,4 @@
+console.log("App loaded")
 import React, { useState, useEffect } from 'react';
 import UploadZone from '../components/UploadZone';
 import LoadingState from '../components/LoadingState';

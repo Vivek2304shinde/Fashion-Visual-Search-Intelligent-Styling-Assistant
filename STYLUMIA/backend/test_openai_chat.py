@@ -3,7 +3,8 @@ Groq Interactive Chat
 """
 
 from groq import Groq
-
+from dotenv import load_dotenv
+load_dotenv() 
 
 MODEL = "llama-3.1-8b-instant"
 import os
