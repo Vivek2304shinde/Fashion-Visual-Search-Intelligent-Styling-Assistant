@@ -19,10 +19,10 @@ class RetrievalAgent:
     """
     Single agent that handles retrieval for ALL categories.
     Uses configuration to generate appropriate search queries.
+    Each category gets its own scraper instance to avoid cross-contamination.
     """
     
     def __init__(self, max_workers: int = 5):
-        self.scraper = MyntraScraper()
         self.max_workers = max_workers
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         
@@ -53,7 +53,7 @@ class RetrievalAgent:
                 max_results=max_results_per_category,
                 spec=spec
             )
-            tasks.append((task, gender))   # <-- store gender with task
+            tasks.append((task, gender))
         
         # Run retrievals in parallel
         results = await asyncio.gather(*[
@@ -74,42 +74,50 @@ class RetrievalAgent:
     async def _retrieve_single_category(self, task: ScrapingTask, gender: str) -> List[Product]:
         """
         Retrieve products for a single category with multiple query attempts.
+        Uses a FRESH scraper instance for each category.
         """
         all_products = []
         search_queries = self._generate_search_queries(
-            task.category, task.spec, gender   # <-- use the passed gender
+            task.category, task.spec, gender
         )
         
         print(f"🔍 Retrieving {task.category} with gender '{gender}'...")
         
-        for query_idx, query in enumerate(search_queries[:5]):  # Max 5 queries
-            try:
-                # Random delay between queries
-                if query_idx > 0:
-                    await asyncio.sleep(random.uniform(1, 2))
-                
-                # Run scraper
-                products = await self._run_scraper(query, task.max_results * 2)
-                
-                if products:
-                    # Convert to Product objects
-                    converted = self._convert_to_products(products, task.category)
+        # Create a new scraper for this category
+        scraper = MyntraScraper()
+        
+        try:
+            for query_idx, query in enumerate(search_queries[:5]):  # Max 5 queries
+                try:
+                    # Random delay between queries
+                    if query_idx > 0:
+                        await asyncio.sleep(random.uniform(1, 2))
                     
-                    # Score and filter
-                    scored = self._score_products(converted, task)
+                    # Run scraper with this fresh instance
+                    products = await self._run_scraper(scraper, query, task.max_results * 2)
                     
-                    all_products.extend(scored)
-                    
-                    print(f"  ✓ Found {len(scored)} for '{query[:40]}...'")
-                    
-                    # Stop if we have enough good products
-                    high_quality = [p for p in all_products if p.match_score > 70]
-                    if len(high_quality) >= task.max_results:
-                        break
+                    if products:
+                        # Convert to Product objects
+                        converted = self._convert_to_products(products, task.category)
                         
-            except Exception as e:
-                print(f"  ✗ Query failed: {e}")
-                continue
+                        # Score and filter
+                        scored = self._score_products(converted, task)
+                        
+                        all_products.extend(scored)
+                        
+                        print(f"  ✓ Found {len(scored)} for '{query[:40]}...'")
+                        
+                        # Stop if we have enough good products
+                        high_quality = [p for p in all_products if p.match_score > 70]
+                        if len(high_quality) >= task.max_results:
+                            break
+                            
+                except Exception as e:
+                    print(f"  ✗ Query failed: {e}")
+                    continue
+        finally:
+            # Always close the scraper for this category
+            scraper.close()
         
         # Deduplicate and sort
         all_products = self._deduplicate(all_products)
@@ -158,13 +166,13 @@ class RetrievalAgent:
         
         return unique_queries[:8]  # Max 8 queries
     
-    async def _run_scraper(self, query: str, max_results: int) -> List[Dict]:
-        """Run scraper in thread pool"""
+    async def _run_scraper(self, scraper: MyntraScraper, query: str, max_results: int) -> List[Dict]:
+        """Run scraper in thread pool with the provided scraper instance"""
         loop = asyncio.get_event_loop()
         try:
             products = await loop.run_in_executor(
                 self.executor,
-                self.scraper.search_products,
+                scraper.search_products,
                 query,
                 max_results
             )

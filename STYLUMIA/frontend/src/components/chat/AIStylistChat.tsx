@@ -11,7 +11,7 @@ interface Message {
 interface AIStylistChatProps {
   isOpen: boolean;
   onClose: () => void;
-  onRecommendationsReady: (outfitPlan?: any) => void;
+  onGetRecommendations: (outfitPlan?: any) => void;
 }
 
 const TypingIndicator: React.FC = () => (
@@ -29,7 +29,7 @@ const TypingIndicator: React.FC = () => (
   </div>
 );
 
-const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecommendationsReady }) => {
+const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onGetRecommendations }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -38,7 +38,6 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
   const inputRef = useRef<HTMLInputElement>(null);
   const [show, setShow] = useState(false);
 
-  // Initialize chat when opened
   useEffect(() => {
     if (isOpen && !sessionStarted) {
       startNewChat();
@@ -73,42 +72,41 @@ const AIStylistChat: React.FC<AIStylistChatProps> = ({ isOpen, onClose, onRecomm
     }
   };
 
-const handleSend = useCallback(async () => {
-  const text = input.trim();
-  if (!text || isTyping || !sessionStarted) return;
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || isTyping || !sessionStarted) return;
 
-  const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
-  setMessages((prev) => [...prev, userMsg]);
-  setInput('');
-  setIsTyping(true);
+    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
 
-  try {
-    const response = await aiStylistService.sendMessage(text);
-    setMessages(aiStylistService.getMessages());
+    try {
+      const response = await aiStylistService.sendMessage(text);
+      setMessages(aiStylistService.getMessages());
 
-    if (aiStylistService.isReadyForRecommendations()) {
-      // Optionally add a temporary message
+      if (aiStylistService.isReadyForRecommendations()) {
+        setMessages((prev) => [...prev, {
+          id: `temp-${Date.now()}`,
+          role: 'assistant',
+          content: '✨ Looking for the perfect outfit recommendations for you...'
+        }]);
+
+        const recommendations = await aiStylistService.getRecommendations();
+        onGetRecommendations(recommendations);
+        onClose();
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
       setMessages((prev) => [...prev, {
-        id: `temp-${Date.now()}`,
+        id: `a-${Date.now()}`,
         role: 'assistant',
-        content: '✨ Looking for the perfect outfit recommendations for you...'
+        content: "Sorry, I'm having trouble responding. Please try again."
       }]);
-      
-      const recommendations = await aiStylistService.getRecommendations();
-      onRecommendationsReady(recommendations);
-      onClose(); // <-- close the chat
+    } finally {
+      setIsTyping(false);
     }
-  } catch (error) {
-    console.error('Failed to send message:', error);
-    setMessages((prev) => [...prev, {
-      id: `a-${Date.now()}`,
-      role: 'assistant',
-      content: "Sorry, I'm having trouble responding. Please try again."
-    }]);
-  } finally {
-    setIsTyping(false);
-  }
-}, [input, isTyping, sessionStarted, onRecommendationsReady, onClose]);
+  }, [input, isTyping, sessionStarted, onGetRecommendations, onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -121,15 +119,12 @@ const handleSend = useCallback(async () => {
 
   return (
     <>
-      {/* Overlay */}
       <div
         className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
           show ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={onClose}
       />
-
-      {/* Modal */}
       <div
         className={`
           fixed z-[70] 
@@ -144,7 +139,6 @@ const handleSend = useCallback(async () => {
           ${show ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
         `}
       >
-        {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200/50 bg-gradient-to-r from-[#D4AF37]/5 to-transparent">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B4513] to-[#D4AF37] flex items-center justify-center shadow-md">
             <Sparkles className="w-5 h-5 text-white" />
@@ -152,8 +146,8 @@ const handleSend = useCallback(async () => {
           <div className="flex-1">
             <h3 className="font-semibold text-gray-800 text-sm">AI Stylist Assistant</h3>
             <p className="text-xs text-gray-500">
-              {aiStylistService.isReadyForRecommendations() 
-                ? "Ready to style you! ✨" 
+              {aiStylistService.isReadyForRecommendations()
+                ? "Ready to style you! ✨"
                 : "Tell me about your outfit needs"}
             </p>
           </div>
@@ -165,7 +159,6 @@ const handleSend = useCallback(async () => {
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0" style={{ maxHeight: 'calc(100% - 140px)' }}>
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
@@ -198,12 +191,10 @@ const handleSend = useCallback(async () => {
               </div>
             ))
           )}
-
           {isTyping && <TypingIndicator />}
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input */}
         <div className="px-4 py-3 border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
           <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 focus-within:border-[#D4AF37] focus-within:shadow-[0_0_0_3px_rgba(212,175,55,0.1)] transition-all duration-200">
             <input

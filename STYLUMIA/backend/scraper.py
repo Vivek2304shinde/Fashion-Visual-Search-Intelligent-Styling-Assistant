@@ -66,6 +66,14 @@ class MyntraScraper:
             time.sleep(random.uniform(2, 4))
             self.driver.get(search_url)
             
+            # Verify the URL actually contains the expected query (small delay)
+            time.sleep(2)
+            current_url = self.driver.current_url
+            if query.replace(' ', '-') not in current_url and query.replace(' ', '%20') not in current_url:
+                print(f"⚠️ URL mismatch: expected '{query}' but got '{current_url}'. Retrying...")
+                self.driver.get(search_url)
+                time.sleep(2)
+            
             # Check for bot detection
             if self._check_for_bot_detection():
                 print("⚠️ Bot detection triggered, retrying with new driver...")
@@ -188,9 +196,14 @@ class MyntraScraper:
         except:
             return False
 
-    def __del__(self):
+    def close(self):
+        """Explicitly close the driver"""
         if self.driver:
             try:
                 self.driver.quit()
             except:
                 pass
+            self.driver = None
+
+    def __del__(self):
+        self.close()
