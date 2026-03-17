@@ -183,7 +183,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
       <div className="w-full max-w-2xl text-center">
         {/* Logo */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold mb-2 text-[#8B4513] font-clash">Stylumia</h1>
+          <h1 className="text-5xl font-bold mb-2 text-[#8B4513] font-clash">Stylora</h1>
           <div className="w-12 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto"></div>
         </div>
 

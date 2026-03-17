@@ -30,6 +30,20 @@ interface Product extends SearchResult {
   source?: string;
 }
 
+// Helper to safely extract string from possible nested object
+const getStringValue = (value: any): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null) {
+    const keys = Object.keys(value);
+    if (keys.length === 1) {
+      const extracted = value[keys[0]];
+      return extracted !== null && extracted !== undefined ? String(extracted) : '';
+    }
+    return JSON.stringify(value);
+  }
+  return value !== null && value !== undefined ? String(value) : '';
+};
+
 const ProductCard: React.FC<Product & { onToggleSave?: (id: string) => void; saved?: boolean }> = ({
   product_id,
   image_url,
@@ -47,12 +61,18 @@ const ProductCard: React.FC<Product & { onToggleSave?: (id: string) => void; sav
     onToggleSave?.(product_id);
   };
 
+  const safeProductName = getStringValue(product_name);
+  const safeBrand = getStringValue(brand);
+  const safePrice = getStringValue(price);
+  const safeSource = getStringValue(source);
+  const safeImageUrl = getStringValue(image_url);
+
   return (
     <div className="glass-panel rounded-2xl overflow-hidden hover-lift group border-amber-200/20">
       <div className="relative cursor-pointer" onClick={handleClick}>
         <img
-          src={image_url}
-          alt={product_name}
+          src={safeImageUrl}
+          alt={safeProductName}
           className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=Image+Not+Found';
@@ -66,18 +86,18 @@ const ProductCard: React.FC<Product & { onToggleSave?: (id: string) => void; sav
         >
           <Heart className={`w-5 h-5 ${saved ? 'fill-current' : ''}`} />
         </button>
-        {source && (
+        {safeSource && (
           <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full backdrop-blur-sm">
-            {source.toUpperCase()}
+            {safeSource.toUpperCase()}
           </div>
         )}
       </div>
       <div className="p-4 space-y-2">
-        <div className="text-sm text-slate-500 font-medium">{brand}</div>
+        <div className="text-sm text-slate-500 font-medium">{safeBrand}</div>
         <h4 className="font-semibold text-slate-800 line-clamp-2 cursor-pointer hover:text-amber-600" onClick={handleClick}>
-          {product_name}
+          {safeProductName}
         </h4>
-        <div className="text-lg font-bold brand-gold">₹{price}</div>
+        <div className="text-lg font-bold brand-gold">₹{safePrice}</div>
       </div>
     </div>
   );
@@ -126,7 +146,6 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
     propRecommendedProducts || {}
   );
 
-  // Log the received props for debugging
   console.log('🎯 ResultsPage props:', {
     propOutfitPlan: !!propOutfitPlan,
     propStylingAdvice: !!propStylingAdvice,
@@ -364,10 +383,35 @@ const ResultsPage: React.FC<ResultsPageProps> = ({
           </div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+
+      {/* Fixed reference image panel - only if an image was uploaded */}
+      {uploadedImage && (
+        <div className="fixed top-32 left-6 z-20 w-48 h-64">
+          <div className="glass-panel rounded-2xl p-4 border-amber-200/30">
+            <h4 className="text-sm font-medium brand-gold mb-3 text-center">Your Style</h4>
+            <div className="relative">
+              <div className="w-full h-48 rounded-xl overflow-hidden shadow-lg border-2 border-amber-100">
+                <img 
+                  src={getImageAsString()} 
+                  alt="Your uploaded style" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 brand-gold-bg rounded-full flex items-center justify-center shadow-lg">
+                <Sparkles className="w-3 h-3 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 text-center">Reference</p>
+          </div>
+        </div>
+      )}
+
+      {/* Main content area with conditional left padding to accommodate fixed image */}
+      <div className={`max-w-7xl mx-auto px-6 py-6 ${uploadedImage ? 'pl-56' : ''}`}>
         <TabNavigation activeTab={activeTab} onTabChange={(tab: string) => setActiveTab(tab as TabType)} />
         <div className="space-y-6 tab-transition">{renderContent()}</div>
       </div>
+
       <button
         onClick={() => setIsChatOpen(true)}
         className="fixed bottom-6 right-6 bg-gradient-to-r from-[#8B4513] to-[#D4AF37] text-white p-4 rounded-full shadow-2xl hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-40"

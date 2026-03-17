@@ -11,7 +11,7 @@ const SplashScreen: React.FC = () => {
     >
       <div className="text-center">
         <h1 className="text-6xl font-bold text-white font-clash animate-gentle-pulse">
-          Stylumia
+          Stylora
         </h1>
         <div className="mt-4 flex justify-center">
           <div className="w-24 h-1 bg-white/30 rounded-full overflow-hidden">

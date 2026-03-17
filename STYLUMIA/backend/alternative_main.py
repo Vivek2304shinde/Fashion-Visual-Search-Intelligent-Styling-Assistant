@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # LOAD PRODUCT DATA (FOR METADATA)
 # =========================
 def load_product_data():
-    csv_path = r"C:\Users\Dell\Downloads\Stylumia\Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\data\dresses_bd_processed_data.csv"
+    csv_path = r"Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\data\dresses_bd_processed_data.csv"
     
     try:
         df = pd.read_csv(csv_path, encoding='utf-8')
@@ -93,7 +93,7 @@ logger.info("CORS middleware configured")
 # INITIALIZE COMPONENTS
 # =========================
 # Initialize FAISS search engine for image search (ADD THIS)
-faiss_index_path = r"C:\Users\Dell\Downloads\Stylumia\Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\faiss_index"
+faiss_index_path = r"Fashion-Visual-Search-Intelligent-Styling-Assistant\STYLUMIA\faiss_index"
 try:
     search_engine = EmbeddingSimilaritySearch(faiss_index_path)
     logger.info(f"✅ FAISS Index Loaded from {faiss_index_path}")

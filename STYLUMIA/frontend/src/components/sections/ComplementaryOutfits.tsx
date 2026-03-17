@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Sparkles, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
 interface ComplementaryOutfitsProps {
   uploadedImage: string;
@@ -55,28 +54,8 @@ const ComplementaryOutfits: React.FC<ComplementaryOutfitsProps> = ({ uploadedIma
 
   return (
     <div className="relative min-h-[600px]">
-      {/* User's Reference Image - Fixed in left top corner */}
-      <div className="fixed top-32 left-6 z-20 w-48 h-64">
-        <div className="glass-panel rounded-2xl p-4 border-amber-200/30">
-          <h4 className="text-sm font-medium brand-gold mb-3 text-center">Your Style</h4>
-          <div className="relative">
-            <div className="w-full h-48 rounded-xl overflow-hidden shadow-lg border-2 border-amber-100">
-              <img 
-                src={uploadedImage} 
-                alt="Your uploaded style" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="absolute -top-2 -right-2 w-6 h-6 brand-gold-bg rounded-full flex items-center justify-center shadow-lg">
-              <Sparkles className="w-3 h-3 text-white" />
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mt-2 text-center">Reference</p>
-        </div>
-      </div>
-
-      {/* Main content area with padding for fixed image */}
-      <div className="pl-56 pt-6">
+      {/* Main content area – no left padding (handled by parent) */}
+      <div className="pt-6">
         {/* Complementary Outfits Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 tab-transition">
           {complementaryOutfits.map((outfit) => (
