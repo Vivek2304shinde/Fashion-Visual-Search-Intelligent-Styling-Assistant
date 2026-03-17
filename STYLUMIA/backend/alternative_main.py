@@ -544,16 +544,14 @@ async def get_intelligent_recommendations(session_id: str):
         gender = collected_info.get("gender", "unisex")
         print(f"🔍 DEBUG gender from collected_info: {gender}")
         
-        # 1. Get outfit plan from stylist agent
+        # 1. Get outfit plan from stylist agent (now includes search_queries)
         outfit_plan = await stylist_agent.create_outfit_plan(collected_info)
         
-        # 2. Generate search queries with correct gender
-        search_queries = stylist_agent.extract_categories_for_scraping(
-            outfit_plan, 
-            gender=gender
-        )
+        # 2. Extract the AI-generated search queries (if present)
+        search_queries = outfit_plan.get("search_queries", {})
+        print(f"🔍 AI-GENERATED SEARCH QUERIES: {json.dumps(search_queries, indent=2)}")
         
-        # 3. Build category specs from outfit plan details
+        # 3. Build category specs from outfit plan details (optional, for fallback)
         categories_spec = {}
         for category, details in outfit_plan.get("outfit_plan", {}).items():
             if isinstance(details, dict):
@@ -563,11 +561,13 @@ async def get_intelligent_recommendations(session_id: str):
                     spec.color = details["color"].split()[0]
                 categories_spec[category] = spec
         
-        # 4. Retrieve products from Myntra using retrieval agent
+        # 4. Retrieve products using the AI-generated queries if available,
+        #    otherwise fall back to auto-generated queries from the specs.
         products_by_category = await retrieval_agent.retrieve(
             categories=categories_spec,
             gender=gender,
-            max_results_per_category=10
+            max_results_per_category=10,
+            custom_queries=search_queries   # pass the AI queries (may be empty dict)
         )
         
         # 5. Convert Product objects to dictionaries for JSON response

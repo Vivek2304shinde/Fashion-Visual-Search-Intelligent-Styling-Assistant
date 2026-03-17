@@ -1,6 +1,6 @@
 """
 Retrieval Agent: Handles product scraping for all categories.
-Uses category config for search terms.
+Uses category config for search terms, with optional custom queries from AI.
 """
 
 import asyncio
@@ -36,16 +36,27 @@ class RetrievalAgent:
         self,
         categories: Dict[str, CategorySpec],
         gender: str = "unisex",
-        max_results_per_category: int = 10
+        max_results_per_category: int = 10,
+        custom_queries: Optional[Dict[str, List[str]]] = None
     ) -> Dict[str, List[Product]]:
         """
         Retrieve products for multiple categories in parallel.
+        
+        Args:
+            categories: Mapping of category name to specification.
+            gender: Target gender (male/female/unisex).
+            max_results_per_category: Max products to return per category.
+            custom_queries: Optional pre-generated search queries per category.
+                           If provided, these will be used instead of auto-generated ones.
         """
         # Create tasks for each category
         tasks = []
         for category, spec in categories.items():
-            # Generate search queries for this category
-            search_queries = self._generate_search_queries(category, spec, gender)
+            # Use custom queries if provided, otherwise generate
+            if custom_queries and category in custom_queries:
+                search_queries = custom_queries[category]
+            else:
+                search_queries = self._generate_search_queries(category, spec, gender)
             
             task = ScrapingTask(
                 category=category,
@@ -53,16 +64,17 @@ class RetrievalAgent:
                 max_results=max_results_per_category,
                 spec=spec
             )
-            tasks.append((task, gender))
+            tasks.append((task, gender, search_queries))
         
         # Run retrievals in parallel
         results = await asyncio.gather(*[
-            self._retrieve_single_category(task, gender) for task, gender in tasks
+            self._retrieve_single_category(task, gender, search_queries) 
+            for (task, gender, search_queries) in tasks
         ], return_exceptions=True)
         
         # Organize results
         products_by_category = {}
-        for (task, _), result in zip(tasks, results):
+        for (task, _, _), result in zip(tasks, results):
             if isinstance(result, Exception):
                 print(f"❌ Failed to retrieve {task.category}: {result}")
                 products_by_category[task.category] = []
@@ -71,17 +83,21 @@ class RetrievalAgent:
         
         return products_by_category
     
-    async def _retrieve_single_category(self, task: ScrapingTask, gender: str) -> List[Product]:
+    async def _retrieve_single_category(
+        self, 
+        task: ScrapingTask, 
+        gender: str,
+        search_queries: List[str]
+    ) -> List[Product]:
         """
         Retrieve products for a single category with multiple query attempts.
         Uses a FRESH scraper instance for each category.
         """
         all_products = []
-        search_queries = self._generate_search_queries(
-            task.category, task.spec, gender
-        )
         
         print(f"🔍 Retrieving {task.category} with gender '{gender}'...")
+        if search_queries:
+            print(f"   Queries: {search_queries}")
         
         # Create a new scraper for this category
         scraper = MyntraScraper()
