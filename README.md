@@ -161,13 +161,10 @@ Start chat:
 
 AI gathers preferences → generates full outfit plan
 
+| Screen 1 | Screen 2 | Screen 3 |
+|----------|----------|----------|
+| ![](assets/Screenshot%202026-03-17%20173259.png) | ![](assets/Screenshot%202026-03-17%20173512.png) | ![](assets/Screenshot%202026-03-17%20233417.png) |
 
-
-
-
-
-
-
-
-
-
+| Screen 4 | Screen 5 | Screen 6 |
+|----------|----------|----------|
+| ![](assets/Screenshot%202026-03-18%20003906.png) | ![](assets/Screenshot%202026-03-18%20005600.png) | ![](assets/Screenshot%202026-03-18%20005643.png) |
